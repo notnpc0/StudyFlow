@@ -1,0 +1,3186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>StudyFlow — Adaptive Study Planner</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+
+    <style>
+        /* =========================================================
+           RESET
+        ========================================================= */
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* =========================================================
+           DESIGN TOKENS
+
+           StudyFlow's real subject matter is a precision algorithm -
+           a forgetting curve, an adaptive PID controller, an
+           exponential mastery model - wrapped around the very human
+           ritual of studying at night. The palette follows that: an
+           ink-dark surface (the room after dark), a warm lamp-gold
+           accent (the light you work under), and a monospace face
+           reserved for the algorithm's own numbers.
+        ========================================================= */
+
+        :root {
+            /* --- surfaces, deep ink navy, not pure black --- */
+            --bg: #0b0d12;
+            --surface: #13161d;
+            --surface-2: #181c25;
+            --surface-3: #1e222c;
+            --border: #262b37;
+            --border-soft: #1c202a;
+
+            /* --- text --- */
+            --text: #eceef2;
+            --text-dim: #aab0bd;
+            --muted: #737b8c;
+
+            /* --- accent: warm lamp-gold --- */
+            --accent: #d9a441;
+            --accent-dim: #b8863a;
+            --accent-soft: rgba(217, 164, 65, 0.14);
+            --accent-softer: rgba(217, 164, 65, 0.08);
+            --on-accent: #16130a;
+
+            /* --- status colors, deliberately muted, not stock RGB --- */
+            --urgent: #c1583f;
+            --urgent-soft: rgba(193, 88, 63, 0.16);
+
+            --positive: #74a084;
+            --positive-soft: rgba(116, 160, 132, 0.16);
+
+            --info: #7593b3;
+            --info-soft: rgba(117, 147, 179, 0.16);
+
+            /* --- radii, restrained: mostly small, one larger scale --- */
+            --radius-lg: 18px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+
+            /* --- type --- */
+            --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+            --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        html {
+            color-scheme: dark;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+            color: inherit;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        ::selection {
+            background: var(--accent-soft);
+            color: var(--text);
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* =========================================================
+           ICONS
+
+           A single small line-icon system (stroke only, no fill) so
+           every glyph in the app shares one hand, instead of emoji.
+        ========================================================= */
+
+        .icon {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.6;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            flex-shrink: 0;
+        }
+
+        .icon-sm {
+            width: 16px;
+            height: 16px;
+        }
+
+        .icon-lg {
+            width: 30px;
+            height: 30px;
+            stroke-width: 1.4;
+        }
+
+        /* =========================================================
+           LOGIN
+
+           A single warm glow - like a desk lamp switched on in a
+           dark room - rather than the decorative gradient blobs a
+           template defaults to.
+        ========================================================= */
+
+        #login-screen {
+            min-height: 100vh;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            padding: 30px;
+
+            background:
+                radial-gradient(
+                    ellipse 900px 600px at 50% -8%,
+                    rgba(217, 164, 65, 0.16),
+                    transparent 60%
+                ),
+                var(--bg);
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .brand {
+            text-align: center;
+            margin-bottom: 34px;
+        }
+
+        .brand-icon {
+            width: 52px;
+            height: 52px;
+
+            margin: 0 auto 20px;
+
+            border-radius: var(--radius-sm);
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            color: var(--accent);
+            background: var(--accent-softer);
+            border: 1px solid var(--border);
+        }
+
+        .brand h1 {
+            font-family: var(--font-serif);
+            font-weight: 500;
+            font-size: 30px;
+            letter-spacing: 0.2px;
+            margin-bottom: 8px;
+        }
+
+        .brand p {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .login-card {
+            background: var(--surface);
+            padding: 30px;
+
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+        }
+
+        .login-card h2 {
+            font-family: var(--font-serif);
+            font-weight: 500;
+            font-size: 21px;
+            margin-bottom: 6px;
+        }
+
+        .login-card > p {
+            color: var(--muted);
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-dim);
+            margin-bottom: 7px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 13px;
+
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+
+            outline: none;
+
+            background: var(--surface-2);
+            color: var(--text);
+
+            transition: border-color 0.15s;
+        }
+
+        .form-group input::placeholder {
+            color: var(--muted);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--accent-dim);
+        }
+
+        .primary-button {
+            width: 100%;
+
+            border: none;
+            border-radius: var(--radius-sm);
+
+            padding: 13px;
+
+            background: var(--accent);
+            color: var(--on-accent);
+
+            font-weight: 700;
+            font-size: 14px;
+
+            transition: background 0.15s;
+        }
+
+        .primary-button:hover {
+            background: #e6b558;
+        }
+
+        .demo-note {
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 20px;
+        }
+
+        /* =========================================================
+           APPLICATION SHELL
+        ========================================================= */
+
+        #app {
+            display: none;
+            min-height: 100vh;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* --- sidebar --- */
+
+        .sidebar {
+            width: 240px;
+
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+
+            background: var(--surface);
+
+            border-right: 1px solid var(--border);
+
+            padding: 22px 14px;
+
+            display: flex;
+            flex-direction: column;
+
+            z-index: 20;
+
+            transition: width 0.2s, padding 0.2s;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            padding: 2px 10px 26px;
+
+            font-family: var(--font-serif);
+            font-weight: 500;
+            font-size: 19px;
+            letter-spacing: 0.2px;
+        }
+
+        .sidebar-logo {
+            width: 32px;
+            height: 32px;
+
+            border-radius: var(--radius-sm);
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            color: var(--accent);
+            background: var(--accent-softer);
+            border: 1px solid var(--border);
+        }
+
+        .nav-section-title {
+            color: var(--muted);
+
+            font-size: 11px;
+            font-weight: 600;
+
+            letter-spacing: 0.4px;
+
+            padding: 16px 12px 8px;
+        }
+
+        .nav-section-title:first-of-type {
+            padding-top: 4px;
+        }
+
+        .nav-item {
+            width: 100%;
+
+            display: flex;
+            align-items: center;
+            gap: 11px;
+
+            padding: 10px 12px;
+
+            margin-bottom: 2px;
+
+            border: none;
+            border-radius: var(--radius-sm);
+
+            background: transparent;
+
+            color: var(--text-dim);
+
+            font-weight: 600;
+            font-size: 14px;
+
+            text-align: left;
+
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .nav-item:hover {
+            background: var(--surface-2);
+            color: var(--text);
+        }
+
+        .nav-item.active {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+
+        .sidebar-bottom {
+            margin-top: auto;
+
+            border-top: 1px solid var(--border);
+
+            padding-top: 14px;
+        }
+
+        /* --- main --- */
+
+        .main {
+            margin-left: 240px;
+
+            width: calc(100% - 240px);
+
+            padding: 30px 36px 60px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+
+            margin-bottom: 32px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .page-heading-block p {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 3px;
+        }
+
+        .page-heading-serif {
+            font-family: var(--font-serif);
+            font-weight: 500;
+            font-size: 26px;
+            letter-spacing: 0.1px;
+        }
+
+        .profile {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+        }
+
+        .avatar {
+            width: 38px;
+            height: 38px;
+
+            border-radius: 50%;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            background: var(--accent-soft);
+            color: var(--accent);
+
+            font-family: var(--font-mono);
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .profile strong {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .mobile-menu {
+            display: none;
+        }
+
+        /* --- pages --- */
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+            animation: pageIn 0.2s ease;
+        }
+
+        @keyframes pageIn {
+            from {
+                opacity: 0;
+                transform: translateY(3px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .page-title {
+            margin-bottom: 22px;
+        }
+
+        .page-title h2 {
+            font-family: var(--font-serif);
+            font-weight: 500;
+            font-size: 23px;
+            margin-bottom: 5px;
+        }
+
+        .page-title p {
+            color: var(--muted);
+            font-size: 13.5px;
+        }
+
+        /* =========================================================
+           DASHBOARD
+
+           No gradient hero card - the one honest lead figure here is
+           how many minutes are actually planned today, since that's
+           the thing a person opens this app to find out.
+        ========================================================= */
+
+        .today-figure {
+            display: flex;
+            align-items: baseline;
+            gap: 24px;
+            flex-wrap: wrap;
+
+            padding: 26px 0 30px;
+            margin-bottom: 26px;
+
+            border-bottom: 1px solid var(--border);
+        }
+
+        .today-figure-number {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            font-size: 52px;
+            line-height: 1;
+            color: var(--accent);
+            letter-spacing: -1px;
+        }
+
+        .today-figure-unit {
+            font-family: var(--font-mono);
+            font-size: 18px;
+            color: var(--text-dim);
+            margin-left: 4px;
+        }
+
+        .today-figure-meta {
+            color: var(--muted);
+            font-size: 13.5px;
+            max-width: 320px;
+        }
+
+        .today-figure-meta strong {
+            color: var(--text-dim);
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            padding: 18px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+        }
+
+        .stat-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            color: var(--muted);
+        }
+
+        .stat-number {
+            font-family: var(--font-mono);
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .stat-label {
+            color: var(--muted);
+            font-size: 12.5px;
+            margin-top: 3px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1.6fr 1fr;
+            gap: 16px;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 20px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .panel-header h3 {
+            font-size: 14.5px;
+            font-weight: 700;
+        }
+
+        .text-button {
+            background: transparent;
+            border: none;
+            color: var(--accent);
+            font-size: 12.5px;
+            font-weight: 700;
+        }
+
+        .text-button:hover {
+            color: #e6b558;
+        }
+
+        /* --- task rows --- */
+
+        .task {
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            padding: 13px 0;
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        .task:last-child {
+            border-bottom: none;
+        }
+
+        .task-mark {
+            width: 34px;
+            height: 34px;
+            flex-shrink: 0;
+
+            border-radius: var(--radius-sm);
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-family: var(--font-mono);
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .task-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .task-info strong {
+            display: block;
+            margin-bottom: 2px;
+            font-size: 13.5px;
+            font-weight: 600;
+        }
+
+        .task-info span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .task-time {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-dim);
+        }
+
+        .task-button {
+            border: 1px solid var(--border);
+            padding: 7px 12px;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-dim);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        .task-button:hover {
+            border-color: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .task-button.is-done {
+            border-color: var(--positive);
+            color: var(--positive);
+        }
+
+        /* --- priority badges --- */
+
+        .priority-badge {
+            height: fit-content;
+            padding: 4px 9px;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid transparent;
+        }
+
+        .priority-badge.is-high {
+            background: var(--urgent-soft);
+            color: var(--urgent);
+        }
+
+        .priority-badge.is-medium {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+
+        .priority-badge.is-low {
+            background: var(--surface-3);
+            color: var(--text-dim);
+        }
+
+        .priority-badge.is-past {
+            background: var(--surface-3);
+            color: var(--muted);
+        }
+
+        /* --- progress bars --- */
+
+        .progress-row {
+            margin-bottom: 18px;
+        }
+
+        .progress-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 7px;
+            font-size: 12.5px;
+        }
+
+        .progress-info span:last-child {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--text-dim);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 5px;
+            border-radius: 20px;
+            background: var(--surface-3);
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: inherit;
+            background: var(--accent);
+        }
+
+        .progress-sub {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 7px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        /* =========================================================
+           SUBJECTS
+
+           Letter-mark badges (initial + a rotating deep tint) stand
+           in for a subject icon instead of a cartoon emoji.
+        ========================================================= */
+
+        .letter-mark {
+            width: 44px;
+            height: 44px;
+            flex-shrink: 0;
+
+            border-radius: var(--radius-sm);
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-family: var(--font-serif);
+            font-weight: 500;
+            font-size: 19px;
+
+            border: 1px solid var(--border);
+        }
+
+        .letter-mark.is-sm {
+            width: 34px;
+            height: 34px;
+            font-size: 15px;
+        }
+
+        /* a small rotating set of deep tints, keyed off subject name
+           so the same subject always gets the same mark */
+
+        .mark-0 { background: rgba(217, 164, 65, 0.16); color: #e3b768; }
+        .mark-1 { background: rgba(117, 147, 179, 0.18); color: #93b2d1; }
+        .mark-2 { background: rgba(193, 88, 63, 0.16); color: #d68169; }
+        .mark-3 { background: rgba(116, 160, 132, 0.18); color: #94c3a7; }
+        .mark-4 { background: rgba(158, 129, 199, 0.18); color: #bba4dd; }
+        .mark-5 { background: rgba(199, 155, 89, 0.16); color: #dcb582; }
+
+        .subject-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+
+        .subject-card {
+            background: var(--surface);
+            padding: 20px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            transition: border-color 0.15s;
+        }
+
+        .subject-card:hover {
+            border-color: var(--border-soft);
+            border-color: #333a4a;
+        }
+
+        .subject-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .subject-card h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+
+        .subject-card > p {
+            color: var(--muted);
+            font-size: 12.5px;
+            margin-bottom: 15px;
+        }
+
+        .subject-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 7px;
+        }
+
+        .subject-meta strong {
+            font-family: var(--font-mono);
+            color: var(--text-dim);
+            font-weight: 600;
+        }
+
+        .subject-detail-line {
+            margin-top: 14px;
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .subject-detail-line strong {
+            font-family: var(--font-mono);
+            color: var(--text-dim);
+            font-weight: 600;
+        }
+
+        .subject-card-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        .subject-card-button {
+            border: 1px solid var(--border);
+            background: transparent;
+            border-radius: var(--radius-sm);
+            padding: 7px 11px;
+            color: var(--text-dim);
+            font-size: 11.5px;
+            font-weight: 700;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        .subject-card-button:hover {
+            border-color: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .empty-state {
+            padding: 30px 12px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 13.5px;
+        }
+
+        /* =========================================================
+           EXAMS
+        ========================================================= */
+
+        .exam-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .exam-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+
+            background: var(--surface);
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+        }
+
+        .exam-date {
+            width: 52px;
+            flex-shrink: 0;
+
+            text-align: center;
+            border-radius: var(--radius-sm);
+            padding: 8px 4px;
+
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+        }
+
+        .exam-date strong {
+            display: block;
+            font-family: var(--font-mono);
+            font-weight: 600;
+            font-size: 17px;
+        }
+
+        .exam-date span {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--muted);
+            letter-spacing: 0.3px;
+        }
+
+        .exam-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .exam-info strong {
+            display: block;
+            margin-bottom: 3px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .exam-info span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .days-left {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            font-size: 12.5px;
+            color: var(--text-dim);
+            white-space: nowrap;
+        }
+
+        /* =========================================================
+           TIMETABLE
+        ========================================================= */
+
+        .timetable-note {
+            font-size: 12.5px;
+            color: var(--muted);
+            margin-bottom: 16px;
+            max-width: 60ch;
+        }
+
+        .timetable {
+            overflow-x: auto;
+        }
+
+        .time-row {
+            display: grid;
+            grid-template-columns: 96px repeat(5, minmax(126px, 1fr));
+            min-width: 780px;
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        .time-row > div {
+            padding: 12px;
+            border-right: 1px solid var(--border-soft);
+        }
+
+        .time-row.header {
+            font-weight: 700;
+            font-size: 11.5px;
+            color: var(--muted);
+        }
+
+        .time-label {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--muted);
+            font-size: 11.5px;
+        }
+
+        .schedule-block {
+            padding: 8px 9px !important;
+            background: var(--accent-softer);
+            color: var(--accent);
+            font-size: 11.5px;
+            font-weight: 700;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            margin: 2px;
+        }
+
+        /* =========================================================
+           SETTINGS
+        ========================================================= */
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .setting-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 20px;
+        }
+
+        .setting-card h3 {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .setting-card > p {
+            color: var(--muted);
+            font-size: 12.5px;
+            margin-bottom: 18px;
+        }
+
+        .time-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* =========================================================
+           MODALS
+        ========================================================= */
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+
+            background: rgba(6, 7, 10, 0.68);
+            backdrop-filter: blur(3px);
+
+            align-items: center;
+            justify-content: center;
+
+            z-index: 100;
+            padding: 20px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            width: 100%;
+            max-width: 620px;
+
+            max-height: 90vh;
+            overflow-y: auto;
+
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+
+            padding: 24px;
+
+            animation: modalIn 0.15s ease;
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-family: var(--font-serif);
+            font-weight: 500;
+            font-size: 20px;
+        }
+
+        .modal-subtext {
+            color: var(--muted);
+            font-size: 12.5px;
+            margin-top: 5px;
+            max-width: 46ch;
+        }
+
+        .close-button {
+            width: 32px;
+            height: 32px;
+            flex-shrink: 0;
+
+            border: 1px solid var(--border);
+            border-radius: 50%;
+
+            background: transparent;
+            color: var(--muted);
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .close-button:hover {
+            color: var(--text);
+            border-color: var(--text-dim);
+        }
+
+        .selection-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 9px;
+            margin-bottom: 20px;
+        }
+
+        .selection-card {
+            padding: 13px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface-2);
+
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-align: left;
+
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .selection-card.selected {
+            border-color: var(--accent-dim);
+            background: var(--accent-softer);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .secondary-button {
+            flex: 1;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            font-weight: 700;
+            font-size: 13.5px;
+        }
+
+        .secondary-button:hover {
+            border-color: var(--text-dim);
+        }
+
+        .modal-actions .primary-button {
+            flex: 1;
+        }
+
+        /* --- setup wizard --- */
+
+        .setup-modal {
+            max-width: 800px;
+        }
+
+        .setup-step {
+            display: none;
+        }
+
+        .setup-step.active {
+            display: block;
+        }
+
+        .setup-progress {
+            display: flex;
+            gap: 7px;
+            margin-bottom: 22px;
+        }
+
+        .setup-progress-dot {
+            height: 3px;
+            flex: 1;
+            border-radius: 20px;
+            background: var(--border);
+        }
+
+        .setup-progress-dot.active {
+            background: var(--accent);
+        }
+
+        .setup-intro {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 20px;
+            max-width: 62ch;
+        }
+
+        .setup-subject-block {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 18px;
+            margin-bottom: 14px;
+            background: var(--surface-2);
+        }
+
+        .setup-subject-heading {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            margin-bottom: 15px;
+        }
+
+        .setup-subject-heading strong {
+            font-size: 14.5px;
+            font-weight: 700;
+        }
+
+        .setup-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .setup-grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .setup-full {
+            grid-column: 1 / -1;
+        }
+
+        .setup-topics-note {
+            color: var(--muted);
+            font-size: 11px;
+            margin-top: 6px;
+        }
+
+        .setup-summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .setup-summary-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 15px;
+            background: var(--surface-2);
+        }
+
+        .setup-summary-card span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .setup-summary-card strong {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 20px;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .setup-warning {
+            padding: 12px 14px;
+            border-radius: var(--radius-sm);
+            background: var(--accent-softer);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            color: var(--text-dim);
+            font-size: 12.5px;
+            margin-bottom: 16px;
+        }
+
+        .setup-warning.is-urgent {
+            background: var(--urgent-soft);
+            border-left-color: var(--urgent);
+        }
+
+        .icon-button {
+            width: 32px;
+            height: 32px;
+            flex-shrink: 0;
+
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+
+            background: transparent;
+            color: var(--muted);
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        .icon-button:hover {
+            border-color: var(--urgent);
+            color: var(--urgent);
+        }
+
+        .setup-error {
+            color: var(--urgent);
+            font-size: 12.5px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: none;
+        }
+
+        .today-capacity-note {
+            padding: 12px 14px;
+            border-radius: var(--radius-sm);
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 12.5px;
+            margin-bottom: 15px;
+        }
+
+        /* =========================================================
+           RESPONSIVE
+        ========================================================= */
+
+        @media (max-width: 1050px) {
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .subject-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 760px) {
+
+            .sidebar {
+                width: 0;
+                padding: 0;
+                overflow: hidden;
+                border-right: none;
+            }
+
+            .main {
+                margin-left: 0;
+                width: 100%;
+                padding: 20px 16px 40px;
+            }
+
+            .mobile-menu {
+                display: flex;
+                width: 38px;
+                height: 38px;
+                flex-shrink: 0;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                background: var(--surface);
+                color: var(--text-dim);
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .subject-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .setup-grid-4 {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .today-figure-number {
+                font-size: 40px;
+            }
+        }
+
+        @media (max-width: 480px) {
+
+            .selection-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .setup-grid-2,
+            .setup-grid-4,
+            .setup-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .today-figure {
+                flex-direction: column;
+                gap: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ============================================================
+     ICON SPRITE
+
+     One hand-drawn line-icon system shared by the whole app,
+     instead of emoji.
+============================================================= -->
+
+<svg style="display:none">
+    <symbol id="icon-book" viewBox="0 0 24 24">
+        <rect x="5" y="4.5" width="14" height="15" rx="1.5"></rect>
+        <line x1="9" y1="4.5" x2="9" y2="19.5"></line>
+    </symbol>
+    <symbol id="icon-home" viewBox="0 0 24 24">
+        <polyline points="4,11 12,4.5 20,11"></polyline>
+        <path d="M6 10v9.5h12V10"></path>
+    </symbol>
+    <symbol id="icon-target" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="7.5"></circle>
+        <polyline points="8.5,12.3 11,14.8 15.5,9.8"></polyline>
+    </symbol>
+    <symbol id="icon-calendar" viewBox="0 0 24 24">
+        <rect x="4" y="5.5" width="16" height="14" rx="1.5"></rect>
+        <line x1="4" y1="10" x2="20" y2="10"></line>
+        <line x1="8.5" y1="3.5" x2="8.5" y2="7.5"></line>
+        <line x1="15.5" y1="3.5" x2="15.5" y2="7.5"></line>
+    </symbol>
+    <symbol id="icon-flag" viewBox="0 0 24 24">
+        <line x1="6" y1="4" x2="6" y2="20"></line>
+        <polygon points="6,5 18,5 15,8.5 18,12 6,12"></polygon>
+    </symbol>
+    <symbol id="icon-trend" viewBox="0 0 24 24">
+        <polyline points="4,17 9,11 13,14 20,6"></polyline>
+        <polyline points="15,6 20,6 20,11"></polyline>
+    </symbol>
+    <symbol id="icon-gear" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3.2"></circle>
+        <line x1="12" y1="3.5" x2="12" y2="6.3"></line>
+        <line x1="12" y1="17.7" x2="12" y2="20.5"></line>
+        <line x1="3.5" y1="12" x2="6.3" y2="12"></line>
+        <line x1="17.7" y1="12" x2="20.5" y2="12"></line>
+        <line x1="6.1" y1="6.1" x2="8.1" y2="8.1"></line>
+        <line x1="15.9" y1="15.9" x2="17.9" y2="17.9"></line>
+        <line x1="6.1" y1="17.9" x2="8.1" y2="15.9"></line>
+        <line x1="15.9" y1="8.1" x2="17.9" y2="6.1"></line>
+    </symbol>
+    <symbol id="icon-logout" viewBox="0 0 24 24">
+        <path d="M10 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H10"></path>
+        <line x1="20" y1="12" x2="10.5" y2="12"></line>
+        <polyline points="16,8 20,12 16,16"></polyline>
+    </symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24">
+        <polyline points="5,12.5 9.5,17 19,7"></polyline>
+    </symbol>
+    <symbol id="icon-menu" viewBox="0 0 24 24">
+        <line x1="4" y1="7" x2="20" y2="7"></line>
+        <line x1="4" y1="12" x2="20" y2="12"></line>
+        <line x1="4" y1="17" x2="20" y2="17"></line>
+    </symbol>
+    <symbol id="icon-bell" viewBox="0 0 24 24">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+    </symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24">
+        <polyline points="4,7 20,7"></polyline>
+        <path d="M6.5 7V4.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1V7"></path>
+        <path d="M18 7l-.8 12.5a1.5 1.5 0 0 1-1.5 1.5H8.3a1.5 1.5 0 0 1-1.5-1.5L6 7"></path>
+    </symbol>
+</svg>
+
+
+<!-- ============================================================
+     LOGIN SCREEN
+============================================================= -->
+
+<section id="login-screen">
+
+    <div class="login-container">
+
+        <div class="brand">
+
+            <div class="brand-icon">
+                <svg class="icon-lg"><use href="#icon-book"></use></svg>
+            </div>
+
+            <h1>StudyFlow</h1>
+
+            <p>
+                Your adaptive study planner
+            </p>
+
+        </div>
+
+        <div class="login-card">
+
+            <h2>Welcome back</h2>
+
+            <p>
+                Let's build your most effective study day.
+            </p>
+
+            <form id="login-form">
+
+                <div class="form-group">
+
+                    <label>
+                        Name
+                    </label>
+
+                    <input
+                        id="login-name"
+                        type="text"
+                        placeholder="Enter your name"
+                        required
+                    >
+
+                </div>
+
+                <div class="form-group">
+
+                    <label>
+                        Email
+                    </label>
+
+                    <input
+                        id="login-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        required
+                    >
+
+                </div>
+
+                <button
+                    class="primary-button"
+                    type="submit"
+                >
+                    Enter StudyFlow
+                </button>
+
+            </form>
+
+            <div class="demo-note">
+                Prototype mode • Data stays in this browser
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- ============================================================
+     APPLICATION
+============================================================= -->
+
+<section id="app">
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <div class="sidebar-brand">
+
+                <div class="sidebar-logo">
+                    <svg class="icon icon-sm"><use href="#icon-book"></use></svg>
+                </div>
+
+                StudyFlow
+
+            </div>
+
+            <div class="nav-section-title">
+                Planner
+            </div>
+
+            <button class="nav-item active" data-page="dashboard">
+                <svg class="icon"><use href="#icon-home"></use></svg>
+                Dashboard
+            </button>
+
+            <button class="nav-item" data-page="subjects">
+                <svg class="icon"><use href="#icon-book"></use></svg>
+                My Subjects
+            </button>
+
+            <button class="nav-item" data-page="today">
+                <svg class="icon"><use href="#icon-target"></use></svg>
+                Today's Plan
+            </button>
+
+            <button class="nav-item" data-page="timetable">
+                <svg class="icon"><use href="#icon-calendar"></use></svg>
+                Timetable
+            </button>
+
+            <div class="nav-section-title">
+                Tracking
+            </div>
+
+            <button class="nav-item" data-page="exams">
+                <svg class="icon"><use href="#icon-flag"></use></svg>
+                Exams
+            </button>
+
+            <button class="nav-item" data-page="planner">
+                <svg class="icon"><use href="#icon-bell"></use></svg>
+                Planner
+            </button>
+
+            <button class="nav-item" data-page="progress">
+                <svg class="icon"><use href="#icon-trend"></use></svg>
+                Progress
+            </button>
+
+            <div class="sidebar-bottom">
+
+                <button class="nav-item" data-page="settings">
+                    <svg class="icon"><use href="#icon-gear"></use></svg>
+                    Settings
+                </button>
+
+                <button class="nav-item" id="logout-button">
+                    <svg class="icon"><use href="#icon-logout"></use></svg>
+                    Log out
+                </button>
+
+            </div>
+
+        </aside>
+
+
+        <!-- MAIN CONTENT -->
+
+        <main class="main">
+
+            <header class="topbar">
+
+                <div class="topbar-left">
+
+                    <button class="mobile-menu" id="mobile-menu-button">
+                        <svg class="icon icon-sm"><use href="#icon-menu"></use></svg>
+                    </button>
+
+                    <div class="page-heading-block">
+
+                        <h1 class="page-heading-serif" id="page-heading">
+                            Dashboard
+                        </h1>
+
+                        <p id="page-subheading">
+                            Here's what your study system recommends today.
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <div class="profile">
+
+                    <div class="avatar" id="avatar">
+                        S
+                    </div>
+
+                    <strong id="profile-name">
+                        Student
+                    </strong>
+
+                </div>
+
+            </header>
+
+
+            <!-- =================================================
+                 DASHBOARD PAGE
+            ================================================== -->
+
+            <section class="page active" id="page-dashboard">
+
+                <div class="today-figure">
+
+                    <div>
+                        <span class="today-figure-number" id="dash-today-number">0</span><span class="today-figure-unit">min planned today</span>
+                    </div>
+
+                    <p class="today-figure-meta" id="dash-today-meta">
+                        Complete your setup to see a plan here.
+                    </p>
+
+                </div>
+
+                <div id="dashboard-reminder-slot"></div>
+
+                <div class="stats-grid">
+
+                    <div class="stat-card">
+                        <div class="stat-top">
+                            <span>Completion</span>
+                            <svg class="icon icon-sm"><use href="#icon-check"></use></svg>
+                        </div>
+                        <div class="stat-number" id="stat-completed">0%</div>
+                        <div class="stat-label">Today's tasks done</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-top">
+                            <span>Exams</span>
+                            <svg class="icon icon-sm"><use href="#icon-flag"></use></svg>
+                        </div>
+                        <div class="stat-number" id="stat-exams">0</div>
+                        <div class="stat-label">Upcoming exams</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-top">
+                            <span>Subjects</span>
+                            <svg class="icon icon-sm"><use href="#icon-book"></use></svg>
+                        </div>
+                        <div class="stat-number" id="stat-subjects">0</div>
+                        <div class="stat-label">Active subjects</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-top">
+                            <span>Load</span>
+                            <svg class="icon icon-sm"><use href="#icon-trend"></use></svg>
+                        </div>
+                        <div class="stat-number" id="stat-load">—</div>
+                        <div class="stat-label">Avg. priority today</div>
+                    </div>
+
+                </div>
+
+                <div class="dashboard-grid">
+
+                    <div class="panel">
+
+                        <div class="panel-header">
+                            <h3>Today's highest priorities</h3>
+                            <button class="text-button" data-page-button="today">View all</button>
+                        </div>
+
+                        <div id="dashboard-tasks">
+                            <!-- JS -->
+                        </div>
+
+                    </div>
+
+                    <div class="panel">
+
+                        <div class="panel-header">
+                            <h3>Subject progress</h3>
+                            <button class="text-button" data-page-button="progress">Details</button>
+                        </div>
+
+                        <div id="dashboard-progress">
+                            <!-- JS -->
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 SUBJECTS PAGE
+            ================================================== -->
+
+            <section class="page" id="page-subjects">
+
+                <div class="page-title">
+                    <h2>My Subjects</h2>
+                    <p>Choose the subjects you want StudyFlow to manage.</p>
+                </div>
+
+                <button class="primary-button" style="width:auto;margin-bottom:20px;" id="open-subject-modal">
+                    + Add or select subjects
+                </button>
+
+                <div class="subject-grid" id="subject-grid">
+                    <!-- JS -->
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 TODAY PAGE
+            ================================================== -->
+
+            <section class="page" id="page-today">
+
+                <div class="page-title">
+                    <h2>Today's Plan</h2>
+                    <p>Your current recommended study allocation.</p>
+                </div>
+
+                <div class="panel" id="today-list">
+                    <!-- JS -->
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 EXAMS PAGE
+            ================================================== -->
+
+            <section class="page" id="page-exams">
+
+                <div class="page-title">
+                    <h2>Exams &amp; Deadlines</h2>
+                    <p>Deadlines influence the priority engine.</p>
+                </div>
+
+                <div class="exam-list" id="exam-list">
+                    <!-- JS -->
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 PLANNER PAGE
+            ================================================== -->
+
+            <section class="page" id="page-planner">
+
+                <div class="page-title">
+                    <h2>Planner</h2>
+                    <p>Track project and test paper deadlines, and mark days you're not free.</p>
+                </div>
+
+                <div id="planner-reminder-slot"></div>
+
+                <div class="dashboard-grid">
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Upcoming</h3>
+                        </div>
+                        <div id="planner-list">
+                            <!-- JS -->
+                        </div>
+                    </div>
+
+                    <div>
+
+                        <div class="panel" style="margin-bottom:14px;">
+                            <div class="panel-header">
+                                <h3>Add a deadline</h3>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Name</label>
+                                <input id="event-name" type="text" placeholder="e.g. Biology lab report">
+                            </div>
+
+                            <div class="setup-grid-2">
+                                <div class="form-group">
+                                    <label>Type</label>
+                                    <select id="event-type">
+                                        <option value="project">Project</option>
+                                        <option value="test">Test paper</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Due date</label>
+                                    <input id="event-date" type="date">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Related subject (optional)</label>
+                                <select id="event-subject">
+                                    <option value="">None, just a reminder</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Notes (optional)</label>
+                                <input id="event-notes" type="text" placeholder="e.g. Bring a calculator">
+                            </div>
+
+                            <div class="setup-error" id="event-error">Enter a name and a due date.</div>
+
+                            <button class="primary-button" id="add-event-button">Add deadline</button>
+                        </div>
+
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3>Mark a day not free</h3>
+                            </div>
+
+                            <div class="setup-grid-2">
+                                <div class="form-group">
+                                    <label>Date</label>
+                                    <input id="holiday-date" type="date">
+                                </div>
+                                <div class="form-group">
+                                    <label>Label (optional)</label>
+                                    <input id="holiday-label" type="text" placeholder="e.g. Diwali">
+                                </div>
+                            </div>
+
+                            <div class="setup-error" id="holiday-error">Enter a date.</div>
+
+                            <button class="secondary-button" id="add-holiday-button" style="width:100%;">Mark as not free</button>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 TIMETABLE PAGE
+            ================================================== -->
+
+            <section class="page" id="page-timetable">
+
+                <div class="page-title">
+                    <h2>Weekly Timetable</h2>
+                    <p>Your available study windows.</p>
+                </div>
+
+                <p class="timetable-note">
+                    This is a general weekly rhythm, not the priority-ranked plan on the
+                    Today's Plan page — it spreads your subjects evenly across the week
+                    rather than reallocating by urgency day to day.
+                </p>
+
+                <div class="panel">
+                    <div class="timetable" id="timetable-container">
+                        <!-- JS -->
+                    </div>
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 PROGRESS PAGE
+            ================================================== -->
+
+            <section class="page" id="page-progress">
+
+                <div class="page-title">
+                    <h2>Progress</h2>
+                    <p>Your current estimated mastery.</p>
+                </div>
+
+                <div class="panel" id="progress-page-content">
+                    <!-- JS -->
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 SETTINGS PAGE
+            ================================================== -->
+
+            <section class="page" id="page-settings">
+
+                <div class="page-title">
+                    <h2>Study Settings</h2>
+                    <p>Tell the planner how much time you have.</p>
+                </div>
+
+                <div class="settings-grid">
+
+                    <div class="setting-card">
+
+                        <h3>Weekday availability</h3>
+                        <p>How much study time do you normally have Monday–Friday?</p>
+
+                        <div class="time-inputs">
+
+                            <div class="form-group">
+                                <label>Hours</label>
+                                <input id="weekday-hours" type="number" min="0" max="12" value="2">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Minutes</label>
+                                <input id="weekday-minutes" type="number" min="0" max="59" value="0">
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="setting-card">
+
+                        <h3>Weekend availability</h3>
+                        <p>How much study time do you normally have Saturday–Sunday?</p>
+
+                        <div class="time-inputs">
+
+                            <div class="form-group">
+                                <label>Hours</label>
+                                <input id="weekend-hours" type="number" min="0" max="12" value="4">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Minutes</label>
+                                <input id="weekend-minutes" type="number" min="0" max="59" value="0">
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="setting-card">
+
+                        <h3>Save configuration</h3>
+                        <p>Updates how much time the priority engine has to work with.</p>
+
+                        <button class="primary-button" id="save-settings">
+                            Save study availability
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+</section>
+
+
+<!-- ============================================================
+     SUBJECT SELECTION MODAL
+============================================================= -->
+
+<div class="modal-overlay" id="subject-modal">
+
+    <div class="modal">
+
+        <div class="modal-header">
+
+            <div>
+                <h2>Select your subjects</h2>
+                <p class="modal-subtext">Choose everything you want the planner to consider.</p>
+            </div>
+
+            <button class="close-button" id="close-subject-modal">×</button>
+
+        </div>
+
+        <div class="selection-grid" id="selection-grid">
+            <!-- JS -->
+        </div>
+
+        <div class="modal-actions">
+            <button class="secondary-button" id="cancel-subjects">Cancel</button>
+            <button class="primary-button" id="save-subjects">Save subjects</button>
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ============================================================
+     FIRST-TIME SETUP MODAL
+============================================================= -->
+
+<div class="modal-overlay" id="setup-modal">
+
+    <div class="modal setup-modal">
+
+        <div class="modal-header">
+            <div>
+                <h2 id="setup-title">Build your StudyFlow</h2>
+                <p class="modal-subtext">
+                    StudyFlow needs your real study information before it can build an adaptive plan.
+                </p>
+            </div>
+        </div>
+
+        <div class="setup-progress">
+            <div class="setup-progress-dot active" data-setup-dot="1"></div>
+            <div class="setup-progress-dot" data-setup-dot="2"></div>
+            <div class="setup-progress-dot" data-setup-dot="3"></div>
+        </div>
+
+        <div class="setup-step active" id="setup-step-1">
+            <h3 style="margin-bottom:6px;font-weight:700;font-size:15px;">1. Choose your subjects</h3>
+            <p class="setup-intro">
+                Select the subjects you actually want StudyFlow to manage. Nothing is
+                pre-filled with fake marks or exam dates.
+            </p>
+            <div class="selection-grid" id="setup-selection-grid"></div>
+            <div class="setup-error" id="setup-selection-error">Select at least one subject.</div>
+            <div class="modal-actions">
+                <button class="primary-button" id="setup-next-1">Continue</button>
+            </div>
+        </div>
+
+        <div class="setup-step" id="setup-step-2">
+            <h3 style="margin-bottom:6px;font-weight:700;font-size:15px;">2. Enter your subject information</h3>
+            <p class="setup-intro">
+                Your score is used as the initial mastery estimate, and required minutes
+                is how much total study time you think this subject needs before its exam.
+                Both update automatically as you study and record test results.
+            </p>
+            <div id="setup-subject-forms"></div>
+            <div class="setup-error" id="setup-details-error">Please complete every required subject field.</div>
+            <div class="modal-actions">
+                <button class="secondary-button" id="setup-back-2">Back</button>
+                <button class="primary-button" id="setup-next-2">Continue</button>
+            </div>
+        </div>
+
+        <div class="setup-step" id="setup-step-3">
+            <h3 style="margin-bottom:6px;font-weight:700;font-size:15px;">3. Set your available study time</h3>
+            <p class="setup-intro">
+                The planner will never allocate more time than the amount you give it here.
+                Weekends are handled separately.
+            </p>
+
+            <div class="setup-summary" id="setup-summary"></div>
+
+            <div class="setup-grid-2">
+                <div class="form-group">
+                    <label>Weekday hours</label>
+                    <input id="setup-weekday-hours" type="number" min="0" max="12" value="2">
+                </div>
+                <div class="form-group">
+                    <label>Weekday minutes</label>
+                    <input id="setup-weekday-minutes" type="number" min="0" max="59" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Weekend hours</label>
+                    <input id="setup-weekend-hours" type="number" min="0" max="12" value="4">
+                </div>
+                <div class="form-group">
+                    <label>Weekend minutes</label>
+                    <input id="setup-weekend-minutes" type="number" min="0" max="59" value="0">
+                </div>
+            </div>
+
+            <div class="setup-error" id="setup-time-error">Enter valid study availability.</div>
+
+            <div class="modal-actions">
+                <button class="secondary-button" id="setup-back-3">Back</button>
+                <button class="primary-button" id="finish-setup">Build my planner</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<!-- ============================================================
+     RECORD TEST MODAL
+============================================================= -->
+
+<div class="modal-overlay" id="test-modal">
+
+    <div class="modal" style="max-width: 460px;">
+
+        <div class="modal-header">
+            <div>
+                <h2 id="test-modal-title">Record a test result</h2>
+                <p class="modal-subtext">
+                    This updates mastery immediately, and - once you've logged two or
+                    more tests for this subject - refines how fast it predicts you forget it.
+                </p>
+            </div>
+            <button class="close-button" id="close-test-modal">×</button>
+        </div>
+
+        <div class="form-group">
+            <label>Specific topic tested (optional)</label>
+            <input id="test-topic" type="text" placeholder="e.g. Chapter 3, Trigonometry">
+        </div>
+
+        <div class="setup-grid-2">
+            <div class="form-group">
+                <label>Marks scored *</label>
+                <input id="test-marks" type="number" min="0" step="any" placeholder="e.g. 18">
+            </div>
+            <div class="form-group">
+                <label>Out of *</label>
+                <input id="test-max-marks" type="number" min="0.01" step="any" placeholder="e.g. 20">
+            </div>
+        </div>
+
+        <div class="setup-error" id="test-error">Enter a valid score.</div>
+
+        <div class="modal-actions">
+            <button class="secondary-button" id="cancel-test">Cancel</button>
+            <button class="primary-button" id="save-test">Save test result</button>
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+/* ============================================================
+   STUDYFLOW FRONT-END
+   Connects the existing UI to main.py / Flask.
+   No separate JavaScript file is required.
+============================================================ */
+
+const API = "";
+const COMMON_SUBJECTS = [
+    "Maths", "English Language", "English Literature",
+    "Physics", "Chemistry", "Biology", "Computer Science",
+    "Further Maths", "Business", "Economics",
+    "Geography", "History", "French", "Spanish"
+];
+
+let appData = null;
+let schedule = [];
+let setupSubjects = [];
+let currentSetupStep = 1;
+let selectedTestTopic = null;
+let activeTaskKeys = new Set();
+
+const $ = (id) => document.getElementById(id);
+
+function esc(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({
+        "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+    }[c]));
+}
+
+function initials(name) {
+    const parts = String(name || "Student").trim().split(/\s+/);
+    return (parts.length > 1 ? parts[0][0] + parts[1][0] : parts[0][0] || "S").toUpperCase();
+}
+
+function todayISO() {
+    const d = new Date();
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+}
+
+function formatDate(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString(undefined, {day:"numeric", month:"short", year:"numeric"});
+}
+
+function shortDate(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString(undefined, {day:"2-digit", month:"short"});
+}
+
+function daysLeft(iso) {
+    const a = new Date(todayISO() + "T00:00:00");
+    const b = new Date(iso + "T00:00:00");
+    return Math.ceil((b-a)/86400000);
+}
+
+async function api(path, options = {}) {
+    const response = await fetch(API + path, {
+        headers: {"Content-Type":"application/json", ...(options.headers || {})},
+        ...options
+    });
+    let body = {};
+    try { body = await response.json(); } catch (_) {}
+    if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
+    return body;
+}
+
+function showError(id, message) {
+    const el = $(id);
+    if (!el) return;
+    el.textContent = message;
+    el.style.display = "block";
+}
+
+function hideError(id) {
+    const el = $(id);
+    if (el) el.style.display = "none";
+}
+
+function showApp() {
+    $("login-screen").style.display = "none";
+    $("app").style.display = "block";
+}
+
+function showLogin() {
+    $("app").style.display = "none";
+    $("login-screen").style.display = "flex";
+}
+
+function openModal(id) {
+    $(id).classList.add("show");
+}
+
+function closeModal(id) {
+    $(id).classList.remove("show");
+}
+
+function setPage(page) {
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    const target = $("page-" + page);
+    if (target) target.classList.add("active");
+
+    document.querySelectorAll(".nav-item[data-page]").forEach(n => {
+        n.classList.toggle("active", n.dataset.page === page);
+    });
+
+    const titles = {
+        dashboard: ["Dashboard", "Here's what your study system recommends today."],
+        subjects: ["My Subjects", "Choose the subjects you want StudyFlow to manage."],
+        today: ["Today's Plan", "Your current recommended study allocation."],
+        timetable: ["Weekly Timetable", "Your available study windows."],
+        exams: ["Exams & Deadlines", "Deadlines influence the priority engine."],
+        planner: ["Planner", "Track project and test paper deadlines, and mark days you're not free."],
+        progress: ["Progress", "Your current estimated mastery."],
+        settings: ["Study Settings", "Tell the planner how much time you have."]
+    };
+
+    if (titles[page]) {
+        $("page-heading").textContent = titles[page][0];
+        $("page-subheading").textContent = titles[page][1];
+    }
+
+    const sidebar = document.querySelector(".sidebar");
+    if (window.innerWidth <= 760) {
+        sidebar.style.width = "0";
+        sidebar.style.padding = "0";
+    }
+}
+
+async function refresh() {
+    const data = await api("/api/data");
+    appData = data.data || data;
+
+    renderAll();
+    await buildSchedule();
+}
+
+async function buildSchedule() {
+    if (!appData || !appData.subjects?.length) {
+        schedule = [];
+        renderAll();
+        return;
+    }
+
+    try {
+        schedule = await api("/api/schedule", {
+            method:"POST",
+            body:JSON.stringify({days:7})
+        });
+    } catch (err) {
+        console.error(err);
+        schedule = [];
+    }
+
+    renderAll();
+}
+
+function allTopics() {
+    return appData?.subjects?.flatMap(s => s.topics || []) || [];
+}
+
+function todaySchedule() {
+    return schedule.find(d => d.date === todayISO()) || {
+        date:todayISO(),
+        available_minutes: 0,
+        topics: [],
+        allocations:{}
+    };
+}
+
+function priorityClass(priority) {
+    if (priority >= 0.75) return "is-high";
+    if (priority >= 0.35) return "is-medium";
+    return "is-low";
+}
+
+function priorityText(priority) {
+    if (priority >= 0.75) return "High";
+    if (priority >= 0.35) return "Medium";
+    return "Low";
+}
+
+function taskKey(topicName) {
+    return todayISO() + "::" + topicName;
+}
+
+function isTaskDone(topicName) {
+    return activeTaskKeys.has(taskKey(topicName));
+}
+
+function renderDashboard() {
+    const day = todaySchedule();
+    const allocations = day.allocations || {};
+    const entries = Object.entries(allocations);
+
+    const total = entries.reduce((a,[,m]) => a + Number(m || 0), 0);
+    const done = entries.filter(([name]) => isTaskDone(name)).length;
+    const completion = entries.length ? Math.round(done / entries.length * 100) : 0;
+    const avg = entries.length
+        ? entries.reduce((a,[name]) => {
+            const t = allTopics().find(x => x.name === name);
+            return a + Number(t?.priority || 0);
+        }, 0) / entries.length
+        : 0;
+
+    $("dash-today-number").textContent = Math.round(total);
+    $("dash-today-meta").innerHTML = entries.length
+        ? `<strong>${entries.length} topic${entries.length === 1 ? "" : "s"}</strong> selected by the adaptive engine for today.`
+        : "No study allocation has been generated for today.";
+
+    $("stat-completed").textContent = completion + "%";
+    $("stat-exams").textContent = (appData?.subjects || []).length;
+    $("stat-subjects").textContent = (appData?.subjects || []).length;
+    $("stat-load").textContent = entries.length ? avg.toFixed(2) : "—";
+
+    const tasks = entries.slice(0,5).map(([name, minutes]) => {
+        const t = allTopics().find(x => x.name === name);
+        const doneNow = isTaskDone(name);
+        const priority = Number(t?.priority || 0);
+        return `
+            <div class="task">
+                <div class="task-mark ${priority >= .75 ? "priority-badge is-high" : priority >= .35 ? "priority-badge is-medium" : "priority-badge is-low"}">
+                    ${esc(initials(name).slice(0,2))}
+                </div>
+                <div class="task-info">
+                    <strong>${esc(name)}</strong>
+                    <span>${priorityText(priority)} priority · mastery ${Math.round(Number(t?.mastery || 0)*100)}%</span>
+                </div>
+                <span class="task-time">${Math.round(minutes)} min</span>
+                <button class="task-button ${doneNow ? "is-done" : ""}" onclick="completeTask(${JSON.stringify(name)}, ${Number(minutes) || 0})">
+                    ${doneNow ? "Done" : "Complete"}
+                </button>
+            </div>`;
+    }).join("");
+
+    $("dashboard-tasks").innerHTML = tasks || `<div class="empty-state">Complete setup to generate today's priorities.</div>`;
+
+    const progress = (appData?.subjects || []).map((s,i) => {
+        const topics = s.topics || [];
+        const mastery = topics.length
+            ? topics.reduce((a,t)=>a+Number(t.mastery||0),0)/topics.length
+            : Number(s.current_marks||0)/Math.max(1,Number(s.maximum_marks||100));
+        return `
+            <div class="progress-row">
+                <div class="progress-info"><span>${esc(s.name)}</span><span>${Math.round(mastery*100)}%</span></div>
+                <div class="progress-bar"><div class="progress-fill" style="width:${Math.max(0,Math.min(100,mastery*100))}%"></div></div>
+            </div>`;
+    }).join("");
+
+    $("dashboard-progress").innerHTML = progress || `<div class="empty-state">No subjects yet.</div>`;
+}
+
+function renderSubjects() {
+    const subjects = appData?.subjects || [];
+    $("subject-grid").innerHTML = subjects.length ? subjects.map((s,i) => {
+        const topics = s.topics || [];
+        const mastery = topics.length
+            ? topics.reduce((a,t)=>a+Number(t.mastery||0),0)/topics.length
+            : Number(s.current_marks||0)/Math.max(1,Number(s.maximum_marks||100));
+
+        return `
+        <div class="subject-card">
+            <div class="subject-top">
+                <div class="letter-mark mark-${i%6}">${esc(initials(s.name).slice(0,2))}</div>
+                <span class="priority-badge is-medium">${topics.length} topic${topics.length===1?"":"s"}</span>
+            </div>
+            <h3>${esc(s.name)}</h3>
+            <p>Exam: ${formatDate(s.exam_date)}</p>
+            <div class="subject-meta"><span>Mastery</span><strong>${Math.round(mastery*100)}%</strong></div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${Math.max(0,Math.min(100,mastery*100))}%"></div></div>
+            <div class="subject-detail-line">
+                Exam in <strong>${Math.max(0,daysLeft(s.exam_date))}</strong> day(s)
+            </div>
+            <div class="subject-card-actions">
+                <button class="subject-card-button" onclick="openTestForSubject(${JSON.stringify(s.name)})">Record test</button>
+            </div>
+        </div>`;
+    }).join("") : `<div class="empty-state">No subjects have been added.</div>`;
+}
+
+function renderToday() {
+    const day = todaySchedule();
+    const allocations = day.allocations || {};
+    const entries = Object.entries(allocations);
+
+    $("today-list").innerHTML = entries.length ? `
+        <div class="today-capacity-note">
+            ${Math.round(day.available_minutes || 0)} minutes available today. Time is allocated from topic priority.
+        </div>
+        ${entries.map(([name,minutes]) => {
+            const t = allTopics().find(x=>x.name===name);
+            const p = Number(t?.priority||0);
+            const done = isTaskDone(name);
+            return `
+            <div class="task">
+                <div class="task-mark ${priorityClass(p)}">${esc(initials(name).slice(0,2))}</div>
+                <div class="task-info">
+                    <strong>${esc(name)}</strong>
+                    <span>Mastery ${Math.round(Number(t?.mastery||0)*100)}% · exam ${formatDate(t?.exam_date)}</span>
+                </div>
+                <span class="priority-badge ${priorityClass(p)}">${priorityText(p)}</span>
+                <span class="task-time">${Math.round(minutes)} min</span>
+                <button class="task-button ${done?"is-done":""}" onclick="completeTask(${JSON.stringify(name)}, ${Number(minutes)||0})">
+                    ${done?"Done":"Log study"}
+                </button>
+            </div>`;
+        }).join("")}` :
+        `<div class="empty-state">No topics are scheduled for today.</div>`;
+}
+
+function renderExams() {
+    const subjects = [...(appData?.subjects || [])].sort((a,b)=>String(a.exam_date).localeCompare(String(b.exam_date)));
+
+    $("exam-list").innerHTML = subjects.length ? subjects.map(s => {
+        const left = daysLeft(s.exam_date);
+        const urgent = left <= 7;
+        return `
+        <div class="exam-item">
+            <div class="exam-date"><strong>${new Date(s.exam_date+"T00:00:00").getDate()}</strong><span>${new Date(s.exam_date+"T00:00:00").toLocaleDateString(undefined,{month:"short"})}</span></div>
+            <div class="exam-info"><strong>${esc(s.name)}</strong><span>${formatDate(s.exam_date)} · ${s.topics?.length || 0} topics</span></div>
+            <span class="priority-badge ${urgent?"is-high":"is-medium"}">${left < 0 ? "Past" : left === 0 ? "Today" : left + "d left"}</span>
+        </div>`;
+    }).join("") : `<div class="empty-state">No exams yet.</div>`;
+}
+
+function renderTimetable() {
+    const days = schedule.slice(0,5);
+    const labels = days.map(d => new Date(d.date+"T00:00:00").toLocaleDateString(undefined,{weekday:"short"}));
+    const maxRows = Math.max(1, ...days.map(d => (d.topics||[]).length));
+
+    let html = `<div class="time-row header"><div>Day</div>${labels.map(x=>`<div>${x}</div>`).join("")}</div>`;
+    for(let r=0;r<maxRows;r++) {
+        html += `<div class="time-row"><div class="time-label">Block ${r+1}</div>`;
+        days.forEach(d => {
+            const name = d.topics?.[r];
+            html += `<div>${name ? `<div class="schedule-block">${esc(name)}<br><span>${Math.round(d.allocations?.[name]||0)} min</span></div>` : ""}</div>`;
+        });
+        html += `</div>`;
+    }
+    $("timetable-container").innerHTML = html;
+}
+
+function renderProgress() {
+    const topics = allTopics().sort((a,b)=>Number(b.priority||0)-Number(a.priority||0));
+    $("progress-page-content").innerHTML = topics.length ? topics.map(t => {
+        const mastery = Number(t.mastery||0);
+        const memory = Number(t.memory ?? mastery);
+        return `
+        <div class="progress-row">
+            <div class="progress-info">
+                <span>${esc(t.subject)} · ${esc(t.name)}</span>
+                <span>${Math.round(mastery*100)}% mastery</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${Math.max(0,Math.min(100,mastery*100))}%"></div></div>
+            <div class="progress-sub">
+                <span>Memory ${Math.round(memory*100)}%</span>
+                <span>Priority ${Number(t.priority||0).toFixed(2)}</span>
+                <span>${Math.round(Number(t.completed_minutes||0))}/${Math.round(Number(t.required_minutes||0))} min</span>
+            </div>
+        </div>`;
+    }).join("") : `<div class="empty-state">No topic data yet.</div>`;
+}
+
+function renderPlanner() {
+    // The backend currently does not expose a dedicated CRUD endpoint for
+    // planner reminders, so this page remains a local browser reminder list.
+    const saved = JSON.parse(localStorage.getItem("studyflow_events") || "[]");
+    const holidays = JSON.parse(localStorage.getItem("studyflow_holidays") || "[]");
+    const events = saved.map(x=>({...x, kind:"Deadline"})).concat(holidays.map(x=>({...x, kind:"Not free"})))
+        .sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+
+    $("planner-list").innerHTML = events.length ? events.map((e,i)=>`
+        <div class="task">
+            <div class="task-mark priority-badge ${e.kind==="Not free"?"is-low":"is-medium"}">${e.kind==="Not free"?"—":"!"}</div>
+            <div class="task-info"><strong>${esc(e.name || e.label)}</strong><span>${esc(e.kind)} · ${formatDate(e.date)}${e.subject ? " · "+esc(e.subject):""}</span></div>
+            <button class="task-button" onclick="deletePlannerItem(${i})">Remove</button>
+        </div>`).join("") : `<div class="empty-state">No planner items yet.</div>`;
+
+    const select = $("event-subject");
+    if (select) {
+        const current = select.value;
+        select.innerHTML = `<option value="">None, just a reminder</option>` +
+            (appData?.subjects || []).map(s=>`<option value="${esc(s.name)}">${esc(s.name)}</option>`).join("");
+        select.value = current;
+    }
+}
+
+function renderSettings() {
+    if (!appData) return;
+    const set = (id, value) => { if ($(id)) $(id).value = value; };
+    const wd = Number(appData.weekday_minutes || 0);
+    const we = Number(appData.weekend_minutes || 0);
+    set("weekday-hours", Math.floor(wd/60));
+    set("weekday-minutes", Math.round(wd%60));
+    set("weekend-hours", Math.floor(we/60));
+    set("weekend-minutes", Math.round(we%60));
+}
+
+function renderAll() {
+    if (!appData) return;
+    renderDashboard();
+    renderSubjects();
+    renderToday();
+    renderExams();
+    renderTimetable();
+    renderProgress();
+    renderPlanner();
+    renderSettings();
+    updateProfile();
+}
+
+function updateProfile() {
+    const name = localStorage.getItem("studyflow_name") || "Student";
+    $("profile-name").textContent = name;
+    $("avatar").textContent = initials(name);
+}
+
+function renderSelectionGrid(containerId, selected = []) {
+    const container = $(containerId);
+    const known = new Set(COMMON_SUBJECTS);
+    (appData?.subjects || []).forEach(s => known.add(s.name));
+    setupSubjects.forEach(s => known.add(s.name));
+
+    container.innerHTML = Array.from(known).map(name => `
+        <button type="button" class="selection-card ${selected.includes(name) ? "selected":""}" data-subject="${esc(name)}">
+            <div class="letter-mark is-sm mark-${Math.abs(hash(name))%6}">${esc(initials(name).slice(0,2))}</div>
+            <span>${esc(name)}</span>
+        </button>`).join("") + `
+        <button type="button" class="selection-card" id="${containerId}-custom">
+            <div class="letter-mark is-sm mark-0">+</div>
+            <span>Add custom subject</span>
+        </button>`;
+
+    container.querySelectorAll(".selection-card[data-subject]").forEach(card => {
+        card.addEventListener("click", () => {
+            card.classList.toggle("selected");
+        });
+    });
+
+    $(containerId+"-custom").addEventListener("click", () => {
+        const name = prompt("Subject name:");
+        if (!name?.trim()) return;
+        const clean = name.trim();
+        const existing = Array.from(container.querySelectorAll("[data-subject]")).find(x=>x.dataset.subject.toLowerCase()===clean.toLowerCase());
+        if (existing) {
+            existing.classList.add("selected");
+            return;
+        }
+        const card = document.createElement("button");
+        card.type="button";
+        card.className="selection-card selected";
+        card.dataset.subject=clean;
+        card.innerHTML=`<div class="letter-mark is-sm mark-0">${esc(initials(clean).slice(0,2))}</div><span>${esc(clean)}</span>`;
+        card.addEventListener("click",()=>card.classList.toggle("selected"));
+        container.insertBefore(card, $(containerId+"-custom"));
+    });
+}
+
+function selectedSubjects(containerId) {
+    return Array.from($(containerId).querySelectorAll(".selection-card.selected[data-subject]"))
+        .map(x=>x.dataset.subject);
+}
+
+function hash(str) {
+    let h=0;
+    for(let i=0;i<str.length;i++) h=((h<<5)-h)+str.charCodeAt(i)|0;
+    return Math.abs(h);
+}
+
+function setupSubjectForms(names) {
+    const existing = new Map((appData?.subjects || []).map(s=>[s.name,s]));
+    $("setup-subject-forms").innerHTML = names.map((name,i) => {
+        const s = existing.get(name);
+        const topics = (s?.topics || []).map(t=>t.name).join(", ");
+        return `
+        <div class="setup-subject-block">
+            <div class="setup-subject-heading">
+                <div class="letter-mark is-sm mark-${i%6}">${esc(initials(name).slice(0,2))}</div>
+                <strong>${esc(name)}</strong>
+            </div>
+            <div class="setup-grid-4">
+                <div class="form-group">
+                    <label>Current mark</label>
+                    <input class="setup-current" data-name="${esc(name)}" type="number" min="0" step="any" value="${esc(s?.current_marks ?? 0)}" required>
+                </div>
+                <div class="form-group">
+                    <label>Out of</label>
+                    <input class="setup-max" data-name="${esc(name)}" type="number" min="0.01" step="any" value="${esc(s?.maximum_marks ?? 100)}" required>
+                </div>
+                <div class="form-group">
+                    <label>Exam date</label>
+                    <input class="setup-exam" data-name="${esc(name)}" type="date" value="${esc(s?.exam_date || "")}" required>
+                </div>
+                <div class="form-group">
+                    <label>Total minutes needed</label>
+                    <input class="setup-minutes" data-name="${esc(name)}" type="number" min="0" step="any" value="${esc(s?.topics?.reduce((a,t)=>a+Number(t.required_minutes||0),0) || 120)}" required>
+                </div>
+                <div class="form-group setup-full">
+                    <label>Topics (comma separated)</label>
+                    <input class="setup-topics" data-name="${esc(name)}" type="text" value="${esc(topics)}" placeholder="e.g. Algebra, Trigonometry, Statistics">
+                    <div class="setup-topics-note">If you leave this blank, StudyFlow creates one topic named “${esc(name)}”.</div>
+                </div>
+            </div>
+        </div>`;
+    }).join("");
+}
+
+function collectSetupSubjects() {
+    const names = Array.from(document.querySelectorAll(".setup-subject-block .setup-current")).map(x=>x.dataset.name);
+    return names.map(name => {
+        const old = (appData?.subjects || []).find(s=>s.name===name);
+        const current = Number(document.querySelector(`.setup-current[data-name="${CSS.escape(name)}"]`)?.value);
+        const maximum = Number(document.querySelector(`.setup-max[data-name="${CSS.escape(name)}"]`)?.value);
+        const exam = document.querySelector(`.setup-exam[data-name="${CSS.escape(name)}"]`)?.value;
+        const required = Number(document.querySelector(`.setup-minutes[data-name="${CSS.escape(name)}"]`)?.value);
+        const topicText = document.querySelector(`.setup-topics[data-name="${CSS.escape(name)}"]`)?.value || "";
+
+        if (!Number.isFinite(current) || !Number.isFinite(maximum) || maximum<=0 || current<0 || current>maximum || !exam || !Number.isFinite(required) || required<0) {
+            throw new Error(`Check the information for ${name}.`);
+        }
+
+        const topicNames = topicText.split(",").map(x=>x.trim()).filter(Boolean);
+        const oldTopics = old?.topics || [];
+
+        let topics;
+        if (!topicNames.length) {
+            topics = [{
+                name:name,
+                difficulty:5,
+                required_minutes:required,
+                completed_minutes:oldTopics.reduce((a,t)=>a+Number(t.completed_minutes||0),0),
+                current_marks:current,
+                maximum_marks:maximum,
+                mastery:current/maximum,
+                tests:oldTopics.flatMap(t=>t.tests||[]),
+                study_history:oldTopics.flatMap(t=>t.study_history||[])
+            }];
+        } else {
+            const perTopic = required / topicNames.length;
+            topics = topicNames.map(topicName => {
+                const oldTopic = oldTopics.find(t=>t.name===topicName);
+                return {
+                    name:topicName,
+                    difficulty:Number(oldTopic?.difficulty||5),
+                    required_minutes:oldTopic ? Number(oldTopic.required_minutes||perTopic) : perTopic,
+                    completed_minutes:Number(oldTopic?.completed_minutes||0),
+                    current_marks:Number(oldTopic?.current_marks ?? current),
+                    maximum_marks:Number(oldTopic?.maximum_marks ?? maximum),
+                    mastery:Number(oldTopic?.mastery ?? current/maximum),
+                    forgetting_rate:Number(oldTopic?.forgetting_rate ?? 0.05),
+                    last_studied:oldTopic?.last_studied,
+                    tests:oldTopic?.tests || [],
+                    study_history:oldTopic?.study_history || []
+                };
+            });
+        }
+
+        return {name,current_marks:current,maximum_marks:maximum,exam_date:exam,topics};
+    });
+}
+
+function showSetupStep(step) {
+    currentSetupStep=step;
+    document.querySelectorAll(".setup-step").forEach(x=>x.classList.remove("active"));
+    $("setup-step-"+step).classList.add("active");
+    document.querySelectorAll(".setup-progress-dot").forEach(x=>{
+        x.classList.toggle("active",Number(x.dataset.setupDot)<=step);
+    });
+}
+
+async function finishSetup() {
+    try {
+        const subjects=collectSetupSubjects();
+        const wd=Number($("setup-weekday-hours").value)*60+Number($("setup-weekday-minutes").value);
+        const we=Number($("setup-weekend-hours").value)*60+Number($("setup-weekend-minutes").value);
+        if (wd<0 || we<0 || !Number.isFinite(wd) || !Number.isFinite(we)) throw new Error("Enter valid study availability.");
+
+        const result=await api("/api/setup",{
+            method:"POST",
+            body:JSON.stringify({
+                weekday_minutes:wd,
+                weekend_minutes:we,
+                subjects_per_day:2,
+                subjects
+            })
+        });
+        appData=result.data;
+        closeModal("setup-modal");
+        await buildSchedule();
+    } catch(err) {
+        showError("setup-time-error",err.message);
+    }
+}
+
+async function saveSettings() {
+    if (!appData) return;
+    const wd=Number($("weekday-hours").value)*60+Number($("weekday-minutes").value);
+    const we=Number($("weekend-hours").value)*60+Number($("weekend-minutes").value);
+    if (!Number.isFinite(wd)||!Number.isFinite(we)||wd<0||we<0) {
+        alert("Enter valid study availability.");
+        return;
+    }
+
+    const subjects=appData.subjects || [];
+    try {
+        const result=await api("/api/setup",{
+            method:"POST",
+            body:JSON.stringify({
+                weekday_minutes:wd,
+                weekend_minutes:we,
+                subjects_per_day:Number(appData.subjects_per_day||2),
+                subjects
+            })
+        });
+        appData=result.data;
+        await buildSchedule();
+        alert("Study availability saved.");
+    } catch(err) {
+        alert(err.message);
+    }
+}
+
+async function completeTask(topicName, plannedMinutes) {
+    if (isTaskDone(topicName)) return;
+    const raw=prompt(`How many minutes did you actually study "${topicName}"?`,String(Math.round(plannedMinutes)));
+    if (raw===null) return;
+    const actual=Number(raw);
+    if (!Number.isFinite(actual)||actual<0) {
+        alert("Enter a valid number of minutes.");
+        return;
+    }
+    try {
+        const result=await api("/api/study",{
+            method:"POST",
+            body:JSON.stringify({topic:topicName,planned_minutes:plannedMinutes,actual_minutes:actual})
+        });
+        appData=result.data;
+        activeTaskKeys.add(taskKey(topicName));
+        await buildSchedule();
+    } catch(err) { alert(err.message); }
+}
+
+function openTestForSubject(subjectName) {
+    selectedTestTopic=subjectName;
+    $("test-modal-title").textContent=`Record a test result · ${subjectName}`;
+    $("test-topic").value="";
+    $("test-marks").value="";
+    $("test-max-marks").value="";
+    hideError("test-error");
+    openModal("test-modal");
+}
+
+async function saveTest() {
+    const marks=Number($("test-marks").value);
+    const max=Number($("test-max-marks").value);
+    if (!Number.isFinite(marks)||!Number.isFinite(max)||max<=0||marks<0||marks>max) {
+        showError("test-error","Enter a valid score.");
+        return;
+    }
+    try {
+        const result=await api("/api/test",{
+            method:"POST",
+            body:JSON.stringify({
+                topic:selectedTestTopic,
+                test_topic:$("test-topic").value.trim() || selectedTestTopic,
+                mark:marks,
+                maximum:max
+            })
+        });
+        appData=result.data;
+        closeModal("test-modal");
+        await buildSchedule();
+        alert("Test result saved. The adaptive controller has updated.");
+    } catch(err) {
+        showError("test-error",err.message);
+    }
+}
+
+function deletePlannerItem(index) {
+    const events=JSON.parse(localStorage.getItem("studyflow_events")||"[]");
+    const holidays=JSON.parse(localStorage.getItem("studyflow_holidays")||"[]");
+    const combined=events.map(x=>({...x,kind:"Deadline"})).concat(holidays.map(x=>({...x,kind:"Not free"})))
+        .sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const item=combined[index];
+    if (!item) return;
+    if (item.kind==="Deadline") {
+        const pos=events.indexOf(item);
+        if(pos>=0) events.splice(pos,1);
+        localStorage.setItem("studyflow_events",JSON.stringify(events));
+    } else {
+        const pos=holidays.indexOf(item);
+        if(pos>=0) holidays.splice(pos,1);
+        localStorage.setItem("studyflow_holidays",JSON.stringify(holidays));
+    }
+    renderPlanner();
+}
+
+function addPlannerEvent() {
+    const name=$("event-name").value.trim();
+    const date=$("event-date").value;
+    if(!name||!date) {
+        showError("event-error","Enter a name and a due date.");
+        return;
+    }
+    hideError("event-error");
+    const events=JSON.parse(localStorage.getItem("studyflow_events")||"[]");
+    events.push({
+        name,date,type:$("event-type").value,
+        subject:$("event-subject").value,
+        notes:$("event-notes").value.trim()
+    });
+    localStorage.setItem("studyflow_events",JSON.stringify(events));
+    $("event-name").value="";
+    $("event-date").value="";
+    $("event-notes").value="";
+    renderPlanner();
+}
+
+function addHoliday() {
+    const date=$("holiday-date").value;
+    if(!date) {
+        showError("holiday-error","Enter a date.");
+        return;
+    }
+    hideError("holiday-error");
+    const holidays=JSON.parse(localStorage.getItem("studyflow_holidays")||"[]");
+    holidays.push({date,label:$("holiday-label").value.trim()||"Not free"});
+    localStorage.setItem("studyflow_holidays",JSON.stringify(holidays));
+    $("holiday-date").value="";
+    $("holiday-label").value="";
+    renderPlanner();
+}
+
+async function initialise() {
+    try {
+        await api("/api/health");
+    } catch(err) {
+        alert("StudyFlow's Python server is not running. Start it with: python main.py");
+        return;
+    }
+
+    const name=localStorage.getItem("studyflow_name");
+    if(name) {
+        $("login-name").value=name;
+        $("login-email").value=localStorage.getItem("studyflow_email")||"";
+    }
+
+    try {
+        const result=await api("/api/data");
+        appData=result.data;
+    } catch(err) {
+        appData=null;
+    }
+
+    if(name) {
+        showApp();
+        updateProfile();
+        if(!appData || !(appData.subjects||[]).length) {
+            setupSubjects=[];
+            renderSelectionGrid("setup-selection-grid");
+            openModal("setup-modal");
+        } else {
+            await buildSchedule();
+        }
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    $("login-form").addEventListener("submit", async e => {
+        e.preventDefault();
+        const name=$("login-name").value.trim();
+        const email=$("login-email").value.trim();
+        if(!name||!email) return;
+        localStorage.setItem("studyflow_name",name);
+        localStorage.setItem("studyflow_email",email);
+        showApp();
+        updateProfile();
+
+        try {
+            const result=await api("/api/data");
+            appData=result.data;
+            if(!appData || !(appData.subjects||[]).length) {
+                setupSubjects=[];
+                renderSelectionGrid("setup-selection-grid");
+                showSetupStep(1);
+                openModal("setup-modal");
+            } else {
+                await buildSchedule();
+            }
+        } catch(err) {
+            alert(err.message);
+        }
+    });
+
+    document.querySelectorAll(".nav-item[data-page]").forEach(btn=>{
+        btn.addEventListener("click",()=>setPage(btn.dataset.page));
+    });
+
+    document.querySelectorAll("[data-page-button]").forEach(btn=>{
+        btn.addEventListener("click",()=>setPage(btn.dataset.pageButton));
+    });
+
+    $("logout-button").addEventListener("click",()=>{
+        localStorage.removeItem("studyflow_name");
+        localStorage.removeItem("studyflow_email");
+        showLogin();
+    });
+
+    $("mobile-menu-button").addEventListener("click",()=>{
+        const sidebar=document.querySelector(".sidebar");
+        if(window.innerWidth<=760) {
+            sidebar.style.width="240px";
+            sidebar.style.padding="22px 14px";
+        }
+    });
+
+    $("setup-next-1").addEventListener("click",()=>{
+        const names=selectedSubjects("setup-selection-grid");
+        if(!names.length) {
+            showError("setup-selection-error","Select at least one subject.");
+            return;
+        }
+        hideError("setup-selection-error");
+        setupSubjects=names.map(name=>({name}));
+        setupSubjectForms(names);
+        showSetupStep(2);
+    });
+
+    $("setup-back-2").addEventListener("click",()=>showSetupStep(1));
+    $("setup-next-2").addEventListener("click",()=>{
+        try {
+            const subjects=collectSetupSubjects();
+            setupSubjects=subjects;
+            $("setup-summary").innerHTML=subjects.map(s=>`
+                <div class="setup-summary-card"><span>${esc(s.name)}</span><strong>${formatDate(s.exam_date)}</strong></div>
+            `).join("");
+            hideError("setup-details-error");
+            showSetupStep(3);
+        } catch(err) {
+            showError("setup-details-error",err.message);
+        }
+    });
+    $("setup-back-3").addEventListener("click",()=>showSetupStep(2));
+    $("finish-setup").addEventListener("click",finishSetup);
+
+    $("open-subject-modal").addEventListener("click",()=>{
+        const current=(appData?.subjects||[]).map(s=>s.name);
+        renderSelectionGrid("selection-grid",current);
+        openModal("subject-modal");
+    });
+    $("close-subject-modal").addEventListener("click",()=>closeModal("subject-modal"));
+    $("cancel-subjects").addEventListener("click",()=>closeModal("subject-modal"));
+
+    $("save-subjects").addEventListener("click",async()=>{
+        const names=selectedSubjects("selection-grid");
+        if(!names.length){ alert("Select at least one subject."); return; }
+        // Rebuild using existing subject information wherever possible.
+        setupSubjectForms(names);
+        closeModal("subject-modal");
+        showSetupStep(2);
+        openModal("setup-modal");
+    });
+
+    $("close-test-modal").addEventListener("click",()=>closeModal("test-modal"));
+    $("cancel-test").addEventListener("click",()=>closeModal("test-modal"));
+    $("save-test").addEventListener("click",saveTest);
+
+    $("save-settings").addEventListener("click",saveSettings);
+    $("add-event-button").addEventListener("click",addPlannerEvent);
+    $("add-holiday-button").addEventListener("click",addHoliday);
+
+    document.querySelectorAll(".modal-overlay").forEach(overlay=>{
+        overlay.addEventListener("click",e=>{
+            if(e.target===overlay && overlay.id!=="setup-modal") closeModal(overlay.id);
+        });
+    });
+
+    $("event-date").value=todayISO();
+    $("holiday-date").value=todayISO();
+
+    initialise();
+});
+</script>
+
+</body>
+</html>
